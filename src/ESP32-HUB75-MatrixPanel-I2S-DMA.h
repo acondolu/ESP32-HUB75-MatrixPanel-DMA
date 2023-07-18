@@ -606,6 +606,18 @@ public:
 	
   }
 
+  inline void copyDMABuffer() {
+    if (!m_cfg.double_buff) return;
+    frameStruct* back = &frame_buffer[back_buffer_id];
+    frameStruct* front = &frame_buffer[back_buffer_id^1];
+    if (front->rows != back->rows) return;
+    if (front->rowBits.size() != back->rowBits.size()) return;
+    int size = front->rowBits.size();
+    for (int i=0; i<size;i++)
+      if (back->rowBits[i].get()->getColorDepthSize() == front->rowBits[i].get()->getColorDepthSize())
+        memcpy(back->rowBits[i].get()->data, front->rowBits[i].get()->data, back->rowBits[i].get()->getColorDepthSize());
+  }
+
   /**
    * @param uint8_t b - 8-bit brightness value
    */

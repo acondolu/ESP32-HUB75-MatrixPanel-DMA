@@ -299,6 +299,8 @@ void MatrixPanel_I2S_DMA::configureDMA(const HUB75_I2S_CFG &_cfg)
 
   flipDMABuffer(); // display back buffer 0, draw to 1, ignored if double buffering isn't enabled.
 
+  copyDMABuffer();
+
   // i2s_parallel_send_dma(ESP32_I2S_DEVICE, &dmadesc_a[0]);
   ESP_LOGI("I2S-DMA", "DMA setup completed");
 

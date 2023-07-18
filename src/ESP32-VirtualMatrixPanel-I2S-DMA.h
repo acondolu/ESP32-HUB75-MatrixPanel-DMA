@@ -132,6 +132,7 @@ public:
     uint16_t color333(uint8_t r, uint8_t g, uint8_t b) { return display->color333(r, g, b); }
 
     void flipDMABuffer() { display->flipDMABuffer(); }
+    void copyDMABuffer() { display->copyDMABuffer(); }
     void drawDisplayTest();
 
     void setPhysicalPanelScanRate(PANEL_SCAN_RATE rate);
