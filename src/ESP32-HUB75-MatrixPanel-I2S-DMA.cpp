@@ -409,6 +409,79 @@ void IRAM_ATTR MatrixPanel_I2S_DMA::updateMatrixDMABuffer(uint16_t x_coord, uint
   } while (colour_depth_idx); // end of colour depth loop (8)
 } // updateMatrixDMABuffer (specific co-ords change)
 
+void IRAM_ATTR MatrixPanel_I2S_DMA::crtUpdateMatrixDMABuffer(uint16_t x_coord, uint16_t y_coord, uint8_t color, uint8_t rgb)
+{
+  if (!initialized)
+    return;
+
+  /* 1) Check that the co-ordinates are within range, or it'll break everything big time.
+   * Valid co-ordinates are from 0 to (MATRIX_XXXX-1)
+   */
+  if (x_coord >= PIXELS_PER_ROW || y_coord >= m_cfg.mx_height)
+  {
+    return;
+  }
+
+  /* LED Brightness Compensation. Because if we do a basic "red & mask" for example,
+   * we'll NEVER send the dimmest possible colour, due to binary skew.
+   * i.e. It's almost impossible for colour_depth_idx of 0 to be sent out to the MATRIX unless the 'value' of a colour is exactly '1'
+   * https://ledshield.wordpress.com/2012/11/13/led-brightness-to-your-eye-gamma-correction-no/
+   */
+  uint16_t col16;
+#ifndef NO_CIE1931
+  col16 = lumConvTab[color];
+#else
+  col16 = color << 8;
+#endif
+
+  /* When using the drawPixel, we are obviously only changing the value of one x,y position,
+   * however, the two-scan panels paint TWO lines at the same time
+   * and this reflects the parallel in-DMA-memory data structure of uint16_t's that are getting
+   * pumped out at high speed.
+   *
+   * So we need to ensure we persist the bits (8 of them) of the uint16_t for the row we aren't changing.
+   *
+   * The DMA buffer order has also been reversed (refer to the last code in this function)
+   * so we have to check for this and check the correct position of the MATRIX_DATA_STORAGE_TYPE
+   * data.
+   */
+  x_coord = ESP32_TX_FIFO_POSITION_ADJUST(x_coord);
+
+  uint16_t _colourbitoffset = rgb;
+
+  if (y_coord >= ROWS_PER_FRAME)
+  { // if we are drawing to the bottom part of the panel
+    _colourbitoffset += 3;
+    y_coord -= ROWS_PER_FRAME;
+  }
+  uint16_t _colourbitclear = ~(1 << _colourbitoffset);
+
+  // Iterating through colour depth bits, which we assume are 8 bits per RGB subpixel (24bpp)
+  uint8_t colour_depth_idx = m_cfg.getPixelColorDepthBits();
+  do
+  {
+    --colour_depth_idx;
+
+    uint16_t mask = PIXEL_COLOR_MASK_BIT(colour_depth_idx, MASK_OFFSET);
+
+    uint16_t RGB_output_bits = (bool)(col16 & mask);
+    RGB_output_bits <<= _colourbitoffset;    // shift colour bits to the required position
+
+    // Get the contents at this address,
+    // it would represent a vector pointing to the full row of pixels for the specified colour depth bit at Y coordinate
+    ESP32_I2S_DMA_STORAGE_TYPE *p = getRowDataPtr(y_coord, colour_depth_idx, back_buffer_id);
+
+    // We need to update the correct uint16_t word in the rowBitStruct array pointing to a specific pixel at X - coordinate
+    p[x_coord] &= _colourbitclear; // clear bit
+    p[x_coord] |= RGB_output_bits; // set new RGB bits
+
+#if defined(SPIRAM_DMA_BUFFER)
+    Cache_WriteBack_Addr((uint32_t)&p[x_coord], sizeof(ESP32_I2S_DMA_STORAGE_TYPE));
+#endif
+
+  } while (colour_depth_idx); // end of colour depth loop (8)
+} // crtUpdateMatrixDMABuffer
+
 /* Update the entire buffer with a single specific colour - quicker */
 void MatrixPanel_I2S_DMA::updateMatrixDMABuffer(uint8_t red, uint8_t green, uint8_t blue)
 {

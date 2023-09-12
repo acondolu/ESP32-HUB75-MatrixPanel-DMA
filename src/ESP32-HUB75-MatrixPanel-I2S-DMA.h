@@ -565,6 +565,8 @@ public:
 
   void fillScreenRGB888(uint8_t r, uint8_t g, uint8_t b);
   void drawPixelRGB888(int16_t x, int16_t y, uint8_t r, uint8_t g, uint8_t b);
+  void crtDrawPixelRGB888(int16_t x, int16_t y, uint8_t color, uint8_t rgb);
+  void crtUpdateMatrixDMABuffer(uint16_t x_coord, uint16_t y_coord, uint8_t color, uint8_t rgb);
 
 #ifdef USE_GFX_ROOT
   // 24bpp FASTLED CRGB colour struct support
@@ -920,6 +922,13 @@ inline void MatrixPanel_I2S_DMA::drawPixelRGB888(int16_t x, int16_t y, uint8_t r
   int16_t w = 1, h = 1;
   transform(x, y, w, h);
   updateMatrixDMABuffer(x, y, r, g, b);
+}
+
+inline void MatrixPanel_I2S_DMA::crtDrawPixelRGB888(int16_t x, int16_t y, uint8_t color, uint8_t rgb)
+{
+  int16_t w = 1, h = 1;
+  transform(x, y, w, h);
+  crtUpdateMatrixDMABuffer(x, y, color, rgb);
 }
 
 inline void MatrixPanel_I2S_DMA::fillScreenRGB888(uint8_t r, uint8_t g, uint8_t b)
